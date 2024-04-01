@@ -1,0 +1,179 @@
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  Button,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  ToastAndroid,
+} from "react-native";
+import React, { useEffect, useState } from "react";
+import { getFirestore, getDocs, collection } from "firebase/firestore";
+import { getStorage, ref, uploadBytes } from "firebase/storage";
+import { app } from "../../firebaseConfig";
+import { Formik } from "formik";
+import { Picker } from "@react-native-picker/picker";
+import * as ImagePicker from "expo-image-picker";
+
+
+export default function AddPostScreen() {
+  const [image, setImage] = useState(null);
+  const db = getFirestore(app);
+  const storage = getStorage();
+
+
+  const [categoryList, setCategoryList] = useState([]);
+  useEffect(() => {
+    getCategoryList();
+  }, []);
+  const getCategoryList = async () => {
+    setCategoryList([]);
+    const querySnapshot = await getDocs(collection(db, "Category"));
+
+    querySnapshot.forEach((doc) => {
+      console.log("Docs :", doc.data());
+      setCategoryList((categoryList) => [...categoryList, doc.data()]);
+    });
+  };
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    console.log(result);
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+  };
+
+  const onSubmitMethod = async (value) => {
+    value.image = image;
+    console.log(value);
+
+    const response = await fetch(image);
+    const  blob = await response.blob()
+  };
+
+  return (
+    <View className="p-10">
+      {/* <Text className="text-[30px] font-bold">Add your Post</Text>
+      <Text className="text-[16px] text-grey-500 mb-7">
+        Create and sell here
+      </Text> */}
+      <Formik
+        initialValues={{
+          title: "",
+          desc: "",
+          price: "",
+          category: "",
+          address: "",
+        }}
+        onSubmit={(value) => onSubmitMethod(value)}
+        validate={(values)=>{
+          const errors = {}
+          if (!values.title) {
+            console.log("Title missing");
+            ToastAndroid.show("Title must be there !",ToastAndroid.SHORT)
+            errors.name="Title must be there !"
+          }
+          return errors
+        }}
+      >
+        {({
+          handleChange,
+          handleBlur,
+          handleSubmit,
+          values,
+          setFieldValue,
+        }) => (
+          <View>
+            <TouchableOpacity onPress={pickImage}>
+              {image ? (
+                <Image
+                  source={{ uri: image }}
+                  style={{ width: 100, height: 100 }}
+                />
+              ) : (
+                <Image
+                  source={require("../../assets/images/placeholder.jpg")}
+                  style={{ width: 100, height: 100 }}
+                />
+              )}
+            </TouchableOpacity>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Title here"
+              value={values.title}
+              onChangeText={handleChange("title")}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Write a description"
+              numberOfLines={5}
+              value={values.desc}
+              onChangeText={handleChange("desc")}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Price"
+              keyboardType="number-pad"
+              value={values.price}
+              onChangeText={handleChange("price")}
+            />
+            <View style={{ borderWidth: 1, borderRadius: 10, marginTop: 15 }}>
+              <Picker
+                selectedValue={values?.category}
+                onValueChange={(itemValue) =>
+                  setFieldValue("category", itemValue)
+                }
+              >
+                {categoryList &&
+                  categoryList.map((item, index) => (
+                    <Picker.Item
+                      key={index}
+                      label={item.name}
+                      value={item.name}
+                    />
+                  ))}
+              </Picker>
+            </View>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Address"
+              value={values.address}
+              onChangeText={handleChange("address")}
+            />
+            <TouchableOpacity
+              onPress={handleSubmit}
+              className="p-4 bg-blue-500 rounded-full mt-10"
+            >
+              <Text className="text-center text-white text-[20px]">Submit</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </Formik>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  input: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 10,
+    marginBottom: 5,
+    paddingHorizontal: 17,
+    textAlignVertical: "top",
+    fontSize: 15,
+  },
+});
