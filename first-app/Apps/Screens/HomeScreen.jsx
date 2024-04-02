@@ -5,7 +5,8 @@ export default function HomeScreen() {
   return (
     <View>
       <Text>
-            Welcome to Our App
+            Welcome to Our App 
+            
         {/* <View> 
         <Image
         source={require("../../assets/images/login.jpg")}

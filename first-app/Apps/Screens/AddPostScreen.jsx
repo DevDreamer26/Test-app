@@ -8,22 +8,27 @@ import {
   TouchableOpacity,
   ScrollView,
   ToastAndroid,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import React, { useEffect, useState } from "react";
-import { getFirestore, getDocs, collection } from "firebase/firestore";
-import { getStorage, ref, uploadBytes } from "firebase/storage";
+import { getFirestore, getDocs, collection, addDoc } from "firebase/firestore";
+import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import { app } from "../../firebaseConfig";
 import { Formik } from "formik";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
-
+import { useUser } from "@clerk/clerk-expo";
 
 export default function AddPostScreen() {
   const [image, setImage] = useState(null);
   const db = getFirestore(app);
   const storage = getStorage();
 
+  const [loading,setLoading] = useState();
 
+  // const { user } = useUser();
+  
   const [categoryList, setCategoryList] = useState([]);
   useEffect(() => {
     getCategoryList();
@@ -54,11 +59,37 @@ export default function AddPostScreen() {
   };
 
   const onSubmitMethod = async (value) => {
-    value.image = image;
-    console.log(value);
-
+    // value.image = image;
+    // console.log(value);
+    setLoading(true);
     const response = await fetch(image);
-    const  blob = await response.blob()
+    const blob = await response.blob();
+    const storageRef = ref(storage, "communityPost/" + Date.now() + ".jpg");
+
+    // 'file' comes from the Blob or File API
+
+    uploadBytes(storageRef, blob)
+      .then((snapshot) => {
+        console.log("Uploaded a blob or file!");
+      })
+      .then((response) => {
+        getDownloadURL(storageRef).then(async (downloadUrl) => {
+          console.log(downloadUrl);
+          value.image = downloadUrl;
+          // value.userName = user.fullName;
+          // value.userEmail = user.primaryEmailAddress.emailAddress;
+          // value.userImage = user.imageUrl
+
+          // FORM DATA
+
+          const docRef = await addDoc(collection(db, "UserPost"), value);
+          if (docRef.id) {
+            setLoading(false);
+            Alert.alert('Success !','Post added successfuly !')
+            console.log("Document added !");
+          }
+        });
+      });
   };
 
   return (
@@ -76,14 +107,14 @@ export default function AddPostScreen() {
           address: "",
         }}
         onSubmit={(value) => onSubmitMethod(value)}
-        validate={(values)=>{
-          const errors = {}
+        validate={(values) => {
+          const errors = {};
           if (!values.title) {
             console.log("Title missing");
-            ToastAndroid.show("Title must be there !",ToastAndroid.SHORT)
-            errors.name="Title must be there !"
+            ToastAndroid.show("Title must be there !", ToastAndroid.SHORT);
+            errors.name = "Title must be there !";
           }
-          return errors
+          return errors;
         }}
       >
         {({
@@ -155,8 +186,16 @@ export default function AddPostScreen() {
             <TouchableOpacity
               onPress={handleSubmit}
               className="p-4 bg-blue-500 rounded-full mt-10"
+              style={{
+                backgroundColor:loading?'#ccc':'#007BFF'
+              }}
+              disabled={loading}
             >
-              <Text className="text-center text-white text-[20px]">Submit</Text>
+              {
+              loading?
+              <ActivityIndicator color='#fff'/>:<Text className="text-center text-white text-[20px]">Submit</Text>
+              }
+              
             </TouchableOpacity>
           </View>
         )}
